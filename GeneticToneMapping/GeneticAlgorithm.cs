@@ -198,7 +198,7 @@ namespace GeneticToneMapping
             var toneMaps = individual.Genes.Select(x => x.ToneMap);
             var newColors = ToneMapper.ToneMap(referenceImage, toneMaps);
 
-            var newFitness = ShannonEntropy(newColors) /* + CalculateColorfulness(newColors)*/;
+            var newFitness = ShannonEntropy(newColors) + CalculateColorfulness(newColors);
 
             individual.Fitness = newFitness;
         }

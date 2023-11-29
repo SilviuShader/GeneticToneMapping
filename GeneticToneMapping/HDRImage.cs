@@ -5,10 +5,10 @@ namespace GeneticToneMapping
 {
     internal class HDRImage
     {
-        public int        Width  { get; }
-        public int        Height { get; }
+        public int        Width  { private set; get; }
+        public int        Height { private set; get; }
 
-        public Vector4[]  Data   { get; }
+        public Vector4[]  Data   { private set; get; }
 
         public HDRImage(string filename)
         {
@@ -32,6 +32,18 @@ namespace GeneticToneMapping
             }
 
             part.Close();
+        }
+
+        public void Slice(int newWidth, int newHeight)
+        {
+            var newData = new Vector4[newWidth * newHeight];
+            for (var x = 0; x < newWidth; x++)
+                for (var y = 0; y < newHeight; y++)
+                    newData[x * newHeight + y] = Data[x * Height + y];
+
+            Width = newWidth;
+            Height = newHeight;
+            Data = newData;
         }
 
         public Vector3 GetPixel(int x, int y)
