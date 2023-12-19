@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
+using OpenCvSharp;
 
 namespace GeneticToneMapping
 {
@@ -184,39 +186,44 @@ namespace GeneticToneMapping
 
         private IToneMap RandomToneMap()
         {
-            var rnd = _random.Next(3);
+            var rnd = _random.Next(1);
             return rnd switch
             {
                 0 => new Reinhard(),
-                1 => new TumblinRushmeier(),
-                _ => new Uncharted2()
+                //1 => new TumblinRushmeier(),
+                //_ => new Uncharted2()
             };
         }
 
         private static void SetFitness(Chromosome individual, HDRImage referenceImage)
         {
             var toneMaps = individual.Genes.Select(x => x.ToneMap);
-            var newColors = ToneMapper.ToneMap(referenceImage, toneMaps);
+            var ldrImage = ToneMapper.ToneMap(referenceImage, toneMaps);
 
-            var newFitness = ShannonEntropy(newColors) + CalculateColorfulness(newColors);
+            // TODO: Calculate entropy here
+            var newFitness = ShannonEntropy(ldrImage) + CalculateColorfulness(ldrImage);
 
             individual.Fitness = newFitness;
         }
 
-        private static float ShannonEntropy(IReadOnlyCollection<Color> image)
+        private static unsafe float ShannonEntropy(LDRImage ldr)
         {
+            Vec3f[] data = new Vec3f[ldr.Width * ldr.Height]; // TODO: Optimize this new
+            fixed (void* ptr = data) 
+                Unsafe.CopyBlock(ptr, ldr.Data.DataPointer, (uint)ldr.Width * (uint)ldr.Height * 3 * sizeof(float));
+
             var histogram = new int[256];
             var probabilities = new float[256];
-            foreach (var col in image)
+            foreach (var col in data)
             {
-                var gray = ((float)col.R + (float)col.G + (float)col.B) / 3.0f;
+                var gray = (col.Item0 + col.Item1 + col.Item2) * (255.0f / 3.0f);
                 var bin = (int)(gray);
                 bin = Math.Clamp(bin, 0, 255);
                 histogram[bin]++;
             }
 
             for (var i = 0; i < 256; i++)
-                probabilities[i] = (float)histogram[i] / image.Count;
+                probabilities[i] = (float)histogram[i] / data.Length;
 
             var entropy = 0.0f;
             for (var i = 0; i < 256; i++)
@@ -228,25 +235,16 @@ namespace GeneticToneMapping
             return entropy;
         }
 
-        private static float CalculateColorfulness(IReadOnlyCollection<Color> image)
+        private static float CalculateColorfulness(LDRImage ldr)
         {
-            var meanColor = image.Aggregate(Vector3.Zero, (current, col) => current + col.ToVector3());
-            meanColor /= image.Count;
+            var mean = ldr.Data.Mean();
 
-            var colorfulness = 0.0f;
+            var term = (mean - ldr.Data);
 
-            foreach (var col in image)
-            {
-                var r = col.R / 255.0f;
-                var g = col.G / 255.0f;
-                var b = col.B / 255.0f;
+            var totalScalar = (term.Mul(term)).ToMat().Sum();
+            var total = (float)(totalScalar.Val0 + totalScalar.Val1 + totalScalar.Val2);
 
-                colorfulness += MathF.Pow(r - meanColor.X, 2);
-                colorfulness += MathF.Pow(g - meanColor.Y, 2);
-                colorfulness += MathF.Pow(b - meanColor.Z, 2);
-            }
-
-            colorfulness /= image.Count * 3;
+            var colorfulness = total / 3.0f;
             colorfulness = MathF.Sqrt(colorfulness);
 
             return colorfulness;

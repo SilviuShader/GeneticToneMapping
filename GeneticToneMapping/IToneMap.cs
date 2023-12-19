@@ -1,5 +1,5 @@
 ﻿using System;
-using Microsoft.Xna.Framework;
+using OpenCvSharp;
 
 namespace GeneticToneMapping
 {
@@ -11,7 +11,6 @@ namespace GeneticToneMapping
         float   GetParameter(int index);
         void    SetParameter(int index, float value);
 
-        void    SetImage(HDRImage hdrImage);
-        Vector3 GetLDR(int x, int y);
+        Mat     GetLDR(HDRImage hdrImage);
     }
 }

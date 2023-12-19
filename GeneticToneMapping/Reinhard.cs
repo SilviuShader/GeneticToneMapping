@@ -1,20 +1,19 @@
 ﻿using System.Diagnostics;
-using Microsoft.Xna.Framework;
+using OpenCvSharp;
 
 namespace GeneticToneMapping
 {
     internal struct Reinhard : IToneMap
     {
-        public float     White { get; set; }  = 1.0f;
-                         
-        public int       ParametersCount      => 1;
-        public float     Weight { get; set; } = 1.0f;
+        public float       White { get; set; }  = 1.0f;
+                           
+        public int         ParametersCount      => 1;
+        public float       Weight { get; set; } = 1.0f;
 
-        private HDRImage _workingImage;
+        private static Mat _reinhardMat         = new();
 
         public Reinhard()
         {
-            _workingImage = null;
         }
 
         public float GetParameter(int index)
@@ -29,19 +28,11 @@ namespace GeneticToneMapping
             White = value;
         }
 
-        public void SetImage(HDRImage hdrImage)
+        public Mat GetLDR(HDRImage hdrImage)
         {
-            _workingImage = hdrImage;
-        }
-
-        public Vector3 GetLDR(int x, int y)
-        {
-            var col = _workingImage.GetPixel(x, y);
-
-            var lin = ColorHelper.Luminance(col);
-            var lout = (lin * (1.0f + lin / (White * White))) / (1.0f + lin);
-
-            return col / lin * lout;
+            var r = TonemapReinhard.Create(White);
+            r.Process(hdrImage.Data, _reinhardMat);
+            return _reinhardMat;
         }
 
         public object Clone()
@@ -49,8 +40,7 @@ namespace GeneticToneMapping
             return new Reinhard
             {
                 Weight = Weight,
-                White = White,
-                _workingImage = null
+                White = White
             };
         }
     }

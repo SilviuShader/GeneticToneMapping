@@ -1,9 +1,11 @@
-﻿using System.Linq;
+﻿using System.Configuration;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-
+using OpenCvSharp;
 using SharpEXR;
 
 namespace GeneticToneMapping
@@ -89,16 +91,33 @@ namespace GeneticToneMapping
             base.Draw(gameTime);
         }
 
-        private void RunGeneticAlgorithm()
+        private unsafe void RunGeneticAlgorithm()
         {
+            Vec3f[] data = new Vec3f[_trainingImage.Width * _trainingImage.Height];
+            var colorData = new Color[data.Length];
+
+            int gen = 0;
+
             while (_appRunning)
             {
                 _algorithm.Epoch(_trainingImage);
-                var colorData = ToneMapper.ToneMap(_displayImage, _algorithm.PreviousBest.Genes.Select(x => x.ToneMap));
+                var ldrImage = ToneMapper.ToneMap(_displayImage, _algorithm.PreviousBest.Genes.Select(x => x.ToneMap));
                 _textureMutex.WaitOne();
                 _bestFitness = _algorithm.PreviousBest.Fitness;
-                _ldrTexture.SetData(colorData, 0, colorData.Length);
-                _textureMutex.ReleaseMutex();
+
+                fixed (void* ptr = data)
+                    Unsafe.CopyBlock(ptr, ldrImage.Data.DataPointer, (uint)ldrImage.Width * (uint)ldrImage.Height * 3 * sizeof(float));
+
+                //if (ldrImage.Data.GetArray(out data))
+                {
+                    for (var i = 0; i < data.Length; i++)
+                        colorData[i] = new Color(data[i].Item0, data[i].Item1, data[i].Item2, 1.0f);
+
+                    _ldrTexture.SetData(colorData, 0, colorData.Length);
+                    _textureMutex.ReleaseMutex();
+                }
+
+                gen++;
             }
         }
     }
