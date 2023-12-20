@@ -137,7 +137,9 @@ namespace GeneticToneMapping
                 for (var p = 0; p < gene.ToneMap.ParametersCount; p++)
                 {
                     var val = gene.ToneMap.GetParameter(p);
-                    val += (_random.NextSingle() * 2.0f - 1.0f) * _weightMutation;
+                    gene.ToneMap.GetParameterRange(p, out var minVal, out var maxVal);
+                    val += (_random.NextSingle() * 2.0f - 1.0f) * _weightMutation * (maxVal - minVal);
+                    val = Math.Clamp(val, minVal, maxVal);
                     gene.ToneMap.SetParameter(p, val);
                 }
 
@@ -168,7 +170,10 @@ namespace GeneticToneMapping
             gene.InnovationNumber = innovNumber;
 
             for (var i = 0; i < gene.ToneMap.ParametersCount; i++)
-                gene.ToneMap.SetParameter(i, _random.NextSingle());
+            {
+                gene.ToneMap.GetParameterRange(i, out var minVal, out var maxVal);
+                gene.ToneMap.SetParameter(i, MathHelper.Lerp(minVal, maxVal, _random.NextSingle()));
+            }
 
             gene.ToneMap.Weight = _weightMutation;
 
@@ -186,6 +191,7 @@ namespace GeneticToneMapping
 
         private IToneMap RandomToneMap()
         {
+            
             var rnd = _random.Next(5);
             return rnd switch
             {

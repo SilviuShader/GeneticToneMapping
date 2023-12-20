@@ -6,8 +6,8 @@ namespace GeneticToneMapping
 {
     internal struct Uncharted2 : IToneMap
     {
-        public int      ParametersCount => 7;
-        public float    Weight { get; set; } = 1.0f;
+        public int ParametersCount => 7;
+        public float Weight { get; set; } = 1.0f;
 
         private float[] _parameters;
 
@@ -21,25 +21,33 @@ namespace GeneticToneMapping
             return _parameters[index];
         }
 
+        public void GetParameterRange(int index, out float minVal, out float maxVal)
+        {
+            minVal = 0.0f;
+            maxVal = 1.0f;
+
+            if (index == ParametersCount - 1)
+            {
+                minVal = 0.0f;
+                maxVal = 60.0f;
+            }
+        }
+
         public void SetParameter(int index, float value)
         {
             _parameters[index] = value;
         }
-        
+
         public Mat GetLDR(HDRImage hdrImage)
         {
             var exposureBias = 2.0f;
-            var input = (exposureBias * Uncharted2Tonemap(hdrImage.Data)).ToMat();
-            var mask = new Mat();
-            var output = new Mat();
+            var result = (exposureBias * Uncharted2Tonemap(hdrImage.Data)).ToMat();
 
             var w = _parameters[6];
             var whiteScale = 1.0f / Uncharted2Tonemap(w);
-            input *= whiteScale;
+            result *= whiteScale;
             
-            Cv2.InRange(input, new Scalar(0.0f), new Scalar(1.0f), mask);
-            input.CopyTo(output, mask);
-            return output;
+            return result;
         }
 
         private float Uncharted2Tonemap(float x)
@@ -63,7 +71,7 @@ namespace GeneticToneMapping
             var e = _parameters[4];
             var f = _parameters[5];
 
-            return ((m.Mul((a * m + c * b))+  d * e) / (m.Mul(a * m + b) + d * f)) - e / f;
+            return ((m.Mul((a * m + c * b)) + d * e) / (m.Mul(a * m + b) + d * f)) - e / f;
         }
 
         public object Clone()

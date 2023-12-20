@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using OpenCvSharp;
+using SharpDX.DXGI;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace GeneticToneMapping
 {
@@ -19,8 +22,8 @@ namespace GeneticToneMapping
                 var ldr = toneMap.GetLDR(image);
                 result.AddData(ldr, adjustedWeight);
             }
-
             result.Data.PatchNaNs();
+            result.Clamp01();
 
             return result;
         }

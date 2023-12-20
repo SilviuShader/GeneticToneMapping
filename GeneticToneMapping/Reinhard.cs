@@ -34,6 +34,32 @@ namespace GeneticToneMapping
             return 0.0f;
         }
 
+        public void GetParameterRange(int index, out float minVal, out float maxVal)
+        {
+            minVal = 0.0f;
+            maxVal = 1.0f;
+
+            switch (index)
+            {
+                case 0:
+                    minVal = 0.5f;
+                    maxVal = 3.0f;
+                    break;
+                case 1:
+                    minVal = -8.0f;
+                    maxVal = 8.0f;
+                    break;
+                case 2:
+                    minVal = 0.0f;
+                    maxVal = 1.0f;
+                    break;
+                case 3:
+                    minVal = 0.0f;
+                    maxVal = 1.0f;
+                    break;
+            }
+        }
+
         public void SetParameter(int index, float value)
         {
             switch (index)

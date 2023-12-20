@@ -1,4 +1,5 @@
 ﻿using OpenCvSharp;
+using SharpDX;
 
 namespace GeneticToneMapping
 {
@@ -18,5 +19,15 @@ namespace GeneticToneMapping
 
         public void AddData(Mat newData, float weight) =>
             Data += newData * weight;
+
+        public void Clamp01()
+        {
+            Mat mask = new Mat();
+            Mat newDataMat = new Mat();
+            Cv2.InRange(Data, new Scalar(0.0f, 0.0f, 0.0f), new Scalar(1.0f, 1.0f, 1.0f), mask);
+            Data.CopyTo(newDataMat, mask);
+
+            Data = newDataMat;
+        }
     }
 }

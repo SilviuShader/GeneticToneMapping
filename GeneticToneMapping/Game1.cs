@@ -108,14 +108,11 @@ namespace GeneticToneMapping
                 fixed (void* ptr = data)
                     Unsafe.CopyBlock(ptr, ldrImage.Data.DataPointer, (uint)ldrImage.Width * (uint)ldrImage.Height * 3 * sizeof(float));
 
-                //if (ldrImage.Data.GetArray(out data))
-                {
-                    for (var i = 0; i < data.Length; i++)
-                        colorData[i] = new Color(data[i].Item0, data[i].Item1, data[i].Item2, 1.0f);
+                for (var i = 0; i < data.Length; i++)
+                    colorData[i] = new Color(data[i].Item0, data[i].Item1, data[i].Item2, 1.0f);
 
-                    _ldrTexture.SetData(colorData, 0, colorData.Length);
-                    _textureMutex.ReleaseMutex();
-                }
+                _ldrTexture.SetData(colorData, 0, colorData.Length);
+                _textureMutex.ReleaseMutex();
 
                 gen++;
             }
