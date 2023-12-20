@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using Microsoft.Xna.Framework;
-using OpenCvSharp;
+﻿using OpenCvSharp;
 
 namespace GeneticToneMapping
 {
