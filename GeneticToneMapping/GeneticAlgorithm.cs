@@ -201,7 +201,7 @@ namespace GeneticToneMapping
             var ldrImage = ToneMapper.ToneMap(referenceImage, toneMaps);
 
             // TODO: Calculate entropy here
-            var newFitness = ShannonEntropy(ldrImage) + CalculateColorfulness(ldrImage);
+            var newFitness = ShannonEntropy(ldrImage) + CalculateColorfulness(ldrImage) * 0.001f;
 
             individual.Fitness = newFitness;
         }

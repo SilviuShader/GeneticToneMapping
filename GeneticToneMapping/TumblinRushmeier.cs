@@ -75,8 +75,14 @@ namespace GeneticToneMapping
                 var lout = MathF.Pow(lin, alphaRw / alphaD) / Ldmax * MathF.Pow(10.0f, (betaRw - betaD) / alphaD) -
                            (1.0f / Cmax);
 
-                newData[ix / hdrImage.Height, ix % hdrImage.Height] = new Vec3f(pixel.X / (lin * lout),
+                var newPixel = new Vec3f(pixel.X / (lin * lout),
                     pixel.Y / (lin * lout), pixel.Z / (lin * lout));
+
+                newPixel.Item0 = Math.Clamp(newPixel.Item0, 0.0f, 1.0f);
+                newPixel.Item1 = Math.Clamp(newPixel.Item1, 0.0f, 1.0f);
+                newPixel.Item2 = Math.Clamp(newPixel.Item2, 0.0f, 1.0f);
+
+                newData[ix / hdrImage.Height, ix % hdrImage.Height] = newPixel;
 
                 ix++;
             }
