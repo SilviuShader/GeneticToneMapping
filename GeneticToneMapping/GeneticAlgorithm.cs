@@ -81,6 +81,7 @@ namespace GeneticToneMapping
                 foreach (var individual in specie.Inidividuals)
                 {
                     SetFitness(individual, referenceImage);
+                    individual.InitialFitness = individual.Fitness;
                     individual.Fitness /= specie.Inidividuals.Count;
                 }
             }
@@ -88,7 +89,7 @@ namespace GeneticToneMapping
             _previousBest = _population[0].Representative;
             foreach (var specie in _population)
                 foreach (var individual in specie.Inidividuals)
-                    if (individual.Fitness > _previousBest.Fitness)
+                    if (individual.InitialFitness > _previousBest.InitialFitness)
                         _previousBest = individual;
 
             var newPopulation    = new List<Specie>();
@@ -201,7 +202,7 @@ namespace GeneticToneMapping
 
         private void AddNBest(List<Specie> newPopulation, int copies, int best)
         {
-            var individuals = _population.SelectMany(x => x.Inidividuals).OrderByDescending(x => x.Fitness).Take(best).ToArray();
+            var individuals = _population.SelectMany(x => x.Inidividuals).OrderByDescending(x => x.InitialFitness).Take(best).ToArray();
             for (var i = 0; i < copies; i++) 
                 foreach (var individual in individuals)
                     InsertToPopulation(newPopulation, individual);;
@@ -344,9 +345,10 @@ namespace GeneticToneMapping
 
             // TODO: Calculate entropy here
             var newFitness =
-                ShannonEntropy(ldrImage) +
-                CalcContrast(ldrImage) * 0.01f + 
-                (1.0f / CalcBlurriness(ldrImage)) * 0.00001f;
+                ShannonEntropy(ldrImage) * 10.0f +
+                CalcContrast(ldrImage) * 0.01f+
+                CalcSaturation(ldrImage) * 10.0f +
+                (1.0f / CalcBlurriness(ldrImage)) * 0.000001f;
                 
             individual.Fitness = newFitness;
         }
@@ -360,7 +362,8 @@ namespace GeneticToneMapping
             var probabilities = new float[256];
             foreach (var col in data)
             {
-                var gray = (col.Item0 + col.Item1 + col.Item2) * (255.0f / 3.0f);
+                var mul = (255.0f / 3.0f);
+                var gray = (col.Item0 + col.Item1 + col.Item2) * mul;
                 var bin = (int)(gray);
                 bin = Math.Clamp(bin, 0, 255);
                 histogram[bin]++;
@@ -381,17 +384,11 @@ namespace GeneticToneMapping
 
         private static float CalcContrast(LDRImage ldr)
         {
-            var mean = ldr.Data.Mean();
+            Mat gray = new Mat();
+            Cv2.CvtColor(ldr.Data, gray, ColorConversionCodes.BGR2GRAY);
+            Cv2.MeanStdDev(ldr.Data, out var mean, out var stdDev);
 
-            var term = (mean - ldr.Data);
-
-            var totalScalar = (term.Mul(term)).ToMat().Sum();
-            var total = (float)(totalScalar.Val0 + totalScalar.Val1 + totalScalar.Val2);
-
-            var colorfulness = total / 3.0f;
-            colorfulness = MathF.Sqrt(colorfulness);
-
-            return colorfulness;
+            return (float)stdDev.Val0;
         }
 
         private static float CalcBlurriness(LDRImage ldr)
@@ -403,6 +400,18 @@ namespace GeneticToneMapping
             var normGy = (float)Cv2.Norm(gy);
             var sumSq = normGx * normGx + normGy * normGy;
             return (float)(1.0f / (sumSq / ldr.Data.Size().Width * ldr.Data.Size().Height + 1e-6));
+        }
+
+        private static float CalcSaturation(LDRImage ldr)
+        {
+            Mat hsv = new Mat();
+            Cv2.CvtColor(ldr.Data, hsv, ColorConversionCodes.BGR2HSV);
+
+            Mat[] channels = Cv2.Split(hsv);
+            Mat saturationChannel = channels[1];
+            Scalar meanSaturation = Cv2.Mean(saturationChannel);
+
+            return (float)meanSaturation.Val0;
         }
     }
 }

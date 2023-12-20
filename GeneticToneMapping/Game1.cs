@@ -58,9 +58,9 @@ namespace GeneticToneMapping
             sp.C2        = 1.0f;
             sp.C3        = 4.0f;
             sp.N         = 1.0f;
-            sp.Threshold = 1.5f;
+            sp.Threshold = 3.0f;
 
-            _algorithm = new GeneticAlgorithm(150, 0.5f, 0.01f, 0.1f, 0.01f, sp);
+            _algorithm = new GeneticAlgorithm(150, 0.5f, 0.01f, 0.1f, 0.1f, sp);
             _ldrTexture = new Texture2D(GraphicsDevice, _displayImage.Width, _displayImage.Height, false, SurfaceFormat.Color);
 
             _font = Content.Load<SpriteFont>("AppFont");
@@ -110,7 +110,7 @@ namespace GeneticToneMapping
                 _algorithm.Epoch(_trainingImage);
                 var ldrImage = ToneMapper.ToneMap(_displayImage, _algorithm.PreviousBest.Genes.Select(x => x.ToneMap));
                 _textureMutex.WaitOne();
-                _bestFitness = _algorithm.PreviousBest.Fitness;
+                _bestFitness = _algorithm.PreviousBest.InitialFitness;
 
                 fixed (void* ptr = data)
                     Unsafe.CopyBlock(ptr, ldrImage.Data.DataPointer, (uint)ldrImage.Width * (uint)ldrImage.Height * 3 * sizeof(float));
