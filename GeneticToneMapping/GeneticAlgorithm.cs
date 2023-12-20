@@ -9,9 +9,31 @@ namespace GeneticToneMapping
 {
     internal class GeneticAlgorithm
     {
+        public struct SpecieParameters
+        {
+            public float C1;
+            public float C2;
+            public float C3;
+            public float N;
+            public float Threshold;
+        }
+        
+        class Specie
+        {
+            public Chromosome       Representative => Inidividuals[0];
+
+            public List<Chromosome> Inidividuals { get; }
+
+            public Specie(Chromosome representative)
+            {
+                Inidividuals = new List<Chromosome>();
+                Inidividuals.Add(representative);
+            }
+        }
+
         public  Chromosome       PreviousBest => _previousBest;
 
-        private List<Chromosome> _population;
+        private List<Specie>     _population;
         private int              _populationSize;
         private Random           _random;
 
@@ -20,76 +42,179 @@ namespace GeneticToneMapping
         private float            _removeGeneChance;
         private float            _weightMutation;
 
+        private SpecieParameters _specieParameters;
+
         private int              _innovationNumber;
 
         private Chromosome       _previousBest;
 
-        public GeneticAlgorithm(int populationSize, float crossoverRate, float addGeneChance, float removeGeneChance, float weightMutation)
+        public GeneticAlgorithm(
+            int              populationSize, 
+            float            crossoverRate, 
+            float            addGeneChance, 
+            float            removeGeneChance, 
+            float            weightMutation,
+            SpecieParameters specieParameters)
         {
             _populationSize = populationSize;
-            _population = new List<Chromosome>();
+            _population = new List<Specie>();
 
-            for (var i = 0; i < populationSize; i++)
-                _population.Add(new Chromosome());
-
-            _random = new Random(0);
-            _crossoverRate = crossoverRate;
-            _addGeneChance = addGeneChance;
+            var firstSpecie = new Specie(new Chromosome());
+            while (firstSpecie.Inidividuals.Count < populationSize)
+                firstSpecie.Inidividuals.Add(new Chromosome());
+            _population.Add(firstSpecie);
+            
+            _random           = new Random(0);
+            _crossoverRate    = crossoverRate;
+            _addGeneChance    = addGeneChance;
             _removeGeneChance = removeGeneChance;
-            _weightMutation = weightMutation;
+            _weightMutation   = weightMutation;
             _innovationNumber = 0;
-            _previousBest = _population[0];
+            _previousBest     = firstSpecie.Representative;
+            _specieParameters = specieParameters;
         }
 
         public void Epoch(HDRImage referenceImage)
         {
-            foreach (var individual in _population)
-                SetFitness(individual, referenceImage);
+            foreach (var specie in _population)
+            {
+                foreach (var individual in specie.Inidividuals)
+                {
+                    SetFitness(individual, referenceImage);
+                    individual.Fitness /= specie.Inidividuals.Count;
+                }
+            }
 
-            _previousBest = _population[0];
-            for (var i = 1; i < _populationSize; i++)
-                if (_population[i].Fitness > _previousBest.Fitness)
-                    _previousBest = _population[i];
+            _previousBest = _population[0].Representative;
+            foreach (var specie in _population)
+                foreach (var individual in specie.Inidividuals)
+                    if (individual.Fitness > _previousBest.Fitness)
+                        _previousBest = individual;
 
-            var newPopulation    = new List<Chromosome>();
+            var newPopulation    = new List<Specie>();
             var epochInnovations = new Dictionary<Type, int>();
 
             AddNBest(newPopulation, 2, 3);
 
-            while (newPopulation.Count < _populationSize)
+            var populationSize = newPopulation.Select(x=>x.Inidividuals.Count).Sum();
+            while (populationSize < _populationSize)
             {
                 var parent1 = RouletteWheelSelection();
                 var parent2 = RouletteWheelSelection();
 
                 var child = Crossover(parent1, parent2);
                 Mutate(epochInnovations, child);
-                newPopulation.Add(child);
+
+                InsertToPopulation(newPopulation, child);
+                populationSize++;
             }
 
             _population = newPopulation;
         }
 
-        private void AddNBest(List<Chromosome> newPopulation, int copies, int best)
+        private float CompatibilityDistance(Chromosome individual1, Chromosome individual2)
         {
-            var individuals = _population.OrderByDescending(x => x.Fitness).Take(best);
+            var individual1Genes = new Dictionary<int, Gene>();
+            var individual2Genes = new Dictionary<int, Gene>();
+
+            var maxGene1 = -1;
+            var maxGene2 = -1;
+
+            foreach (var gene in individual1.Genes)
+            {
+                individual1Genes[gene.InnovationNumber] = gene;
+                maxGene1 = Math.Max(maxGene1, gene.InnovationNumber);
+            }
+
+            foreach (var gene in individual2.Genes)
+            {
+                individual2Genes[gene.InnovationNumber] = gene;
+                maxGene2 = Math.Max(maxGene2, gene.InnovationNumber);
+            }
+
+            var excess   = 0;
+            var disjoint = 0;
+            var w        = 0.0f;
+
+            foreach (var gene in individual1.Genes)
+            {
+                if (!individual2Genes.ContainsKey(gene.InnovationNumber))
+                {
+                    if (maxGene2 >= gene.InnovationNumber)
+                        disjoint++;
+                    else
+                        excess++;
+                }
+            }
+
+            foreach (var gene in individual2.Genes)
+            {
+                if (!individual1Genes.ContainsKey(gene.InnovationNumber))
+                {
+                    if (maxGene1 >= gene.InnovationNumber)
+                        disjoint++;
+                    else
+                        excess++;
+                }
+            }
+
+            foreach (var gene in individual1.Genes)
+            {
+                if (individual2Genes.ContainsKey(gene.InnovationNumber))
+                {
+                    var otherGene = individual2Genes[gene.InnovationNumber];
+                    w += MathF.Abs( gene.ToneMap.Weight - otherGene.ToneMap.Weight);
+                }
+            }
+
+            return excess   * (_specieParameters.C1 / _specieParameters.N) +
+                   disjoint * (_specieParameters.C2 / _specieParameters.N) +
+                   _specieParameters.C3 * w;
+        }
+
+        private void InsertToPopulation(List<Specie> newPopulation, Chromosome individual)
+        {
+            Specie targetSpecie = null;
+            foreach (var specie in newPopulation)
+            {
+                if (CompatibilityDistance(specie.Representative, individual) <= _specieParameters.Threshold)
+                {
+                    targetSpecie = specie;
+                    break;
+                }
+            }
+
+            if (targetSpecie != null)
+                targetSpecie.Inidividuals.Add(individual);
+            else
+                newPopulation.Add(new Specie(individual));
+        }
+
+        private void AddNBest(List<Specie> newPopulation, int copies, int best)
+        {
+            var individuals = _population.SelectMany(x => x.Inidividuals).OrderByDescending(x => x.Fitness).Take(best).ToArray();
             for (var i = 0; i < copies; i++) 
-                newPopulation.AddRange(individuals);
+                foreach (var individual in individuals)
+                    InsertToPopulation(newPopulation, individual);;
         }
 
         private Chromosome RouletteWheelSelection()
         {
-            var totalFitness = _population.Select(x => x.Fitness).Sum();
+            var totalFitness = _population.SelectMany(x => x.Inidividuals).Select(x => x.Fitness).Sum();
             var wheelPoint = _random.NextSingle() * totalFitness;
             var accumulatedFitness = 0.0f;
 
-            foreach (var individual in _population)
+            foreach (var specie in _population)
             {
-                accumulatedFitness += individual.Fitness;
-                if (accumulatedFitness >= wheelPoint)
-                    return individual;
+                foreach (var individual in specie.Inidividuals)
+                {
+                    accumulatedFitness += individual.Fitness;
+                    if (accumulatedFitness >= wheelPoint)
+                        return individual;
+                }
             }
 
-            return _population[0];
+            return _population[0].Representative;
         }
 
         private Chromosome Crossover(Chromosome parent1, Chromosome parent2)
