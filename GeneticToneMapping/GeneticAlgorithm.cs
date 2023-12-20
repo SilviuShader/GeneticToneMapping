@@ -186,11 +186,11 @@ namespace GeneticToneMapping
 
         private IToneMap RandomToneMap()
         {
-            var rnd = _random.Next(1);
+            var rnd = _random.Next(2);
             return rnd switch
             {
                 0 => new Reinhard(),
-                //1 => new TumblinRushmeier(),
+                1 => new TumblinRushmeier(),
                 //_ => new Uncharted2()
             };
         }
@@ -206,11 +206,10 @@ namespace GeneticToneMapping
             individual.Fitness = newFitness;
         }
 
-        private static unsafe float ShannonEntropy(LDRImage ldr)
+        private static float ShannonEntropy(LDRImage ldr)
         {
             Vec3f[] data = new Vec3f[ldr.Width * ldr.Height]; // TODO: Optimize this new
-            fixed (void* ptr = data) 
-                Unsafe.CopyBlock(ptr, ldr.Data.DataPointer, (uint)ldr.Width * (uint)ldr.Height * 3 * sizeof(float));
+            OpenCVHelper.CopyMat(ref data, ldr.Data);
 
             var histogram = new int[256];
             var probabilities = new float[256];
