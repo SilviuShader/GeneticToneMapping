@@ -343,11 +343,11 @@ namespace GeneticToneMapping
             var ldrImage = ToneMapper.ToneMap(referenceImage, toneMaps);
 
             // TODO: Calculate entropy here
-            var newFitness = 
-                ShannonEntropy(ldrImage) + 
-                CalculateColorfulness(ldrImage) * 0.1f + 
+            var newFitness =
+                ShannonEntropy(ldrImage) +
+                CalcContrast(ldrImage) * 0.01f + 
                 (1.0f / CalcBlurriness(ldrImage)) * 0.00001f;
-
+                
             individual.Fitness = newFitness;
         }
 
@@ -379,7 +379,7 @@ namespace GeneticToneMapping
             return entropy;
         }
 
-        private static float CalculateColorfulness(LDRImage ldr)
+        private static float CalcContrast(LDRImage ldr)
         {
             var mean = ldr.Data.Mean();
 
@@ -396,20 +396,12 @@ namespace GeneticToneMapping
 
         private static float CalcBlurriness(LDRImage ldr)
         {
-            //Mat Gx, Gy;
-            //Sobel(src, Gx, CV_32F, 1, 0);
-            //Sobel(src, Gy, CV_32F, 0, 1);
-            //double normGx = norm(Gx);
-            //double normGy = norm(Gy);
-            //double sumSq = normGx * normGx + normGy * normGy;
-            //return static_cast<float>(1. / (sumSq / src.size().area() + 1e-6));
-
             Mat gx = new(), gy = new();
             Cv2.Sobel(ldr.Data, gx, MatType.CV_32F, 1, 0);
             Cv2.Sobel(ldr.Data, gy, MatType.CV_32F, 0, 1);
-            float normGx = (float)Cv2.Norm(gx);
-            float normGy = (float)Cv2.Norm(gy);
-            float sumSq = normGx * normGx + normGy * normGy;
+            var normGx = (float)Cv2.Norm(gx);
+            var normGy = (float)Cv2.Norm(gy);
+            var sumSq = normGx * normGx + normGy * normGy;
             return (float)(1.0f / (sumSq / ldr.Data.Size().Width * ldr.Data.Size().Height + 1e-6));
         }
     }
