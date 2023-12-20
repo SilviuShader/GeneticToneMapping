@@ -186,13 +186,14 @@ namespace GeneticToneMapping
 
         private IToneMap RandomToneMap()
         {
-            var rnd = _random.Next(4);
+            var rnd = _random.Next(5);
             return rnd switch
             {
                 0 => new Reinhard(),
                 1 => new TumblinRushmeier(),
                 2 => new Uncharted2(),
-                _ => new Drago()
+                3 => new Drago(),
+                _ => new Mantiuk()
             };
         }
 
