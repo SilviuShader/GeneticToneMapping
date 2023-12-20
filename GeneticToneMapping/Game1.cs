@@ -60,7 +60,7 @@ namespace GeneticToneMapping
             sp.N         = 1.0f;
             sp.Threshold = 3.0f;
 
-            _algorithm = new GeneticAlgorithm(150, 0.5f, 0.1f, 0.1f, 0.01f, sp);
+            _algorithm = new GeneticAlgorithm(150, 0.5f, 0.01f, 0.01f, 0.01f, sp);
             _ldrTexture = new Texture2D(GraphicsDevice, _displayImage.Width, _displayImage.Height, false, SurfaceFormat.Color);
 
             _font = Content.Load<SpriteFont>("AppFont");
