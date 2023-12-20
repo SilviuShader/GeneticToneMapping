@@ -1,16 +1,19 @@
 ﻿using System.Diagnostics;
+using Microsoft.Xna.Framework;
 using OpenCvSharp;
 
 namespace GeneticToneMapping
 {
     internal struct Reinhard : IToneMap
     {
-        public float       White { get; set; }  = 1.0f;
-                           
-        public int         ParametersCount      => 1;
-        public float       Weight { get; set; } = 1.0f;
+        public float       Weight { get; set; }     = 1.0f;
+        public int         ParametersCount          => 4;
+        public float       Gamma { get; set; }      = 1.0f;
+        public float       Intensity { get; set; }  = 0.0f;
+        public float       LightAdapt { get; set; } = 1.0f;
+        public float       ColorAdapt { get; set; } = 0.0f;
 
-        private static Mat _reinhardMat         = new();
+        private static Mat _reinhardMat             = new();
 
         public Reinhard()
         {
@@ -18,19 +21,43 @@ namespace GeneticToneMapping
 
         public float GetParameter(int index)
         {
-            Debug.Assert(index == 0, "Reinahrd has only one parameter");
-            return White;
+            switch (index)
+            {
+                case 0:
+                    return Gamma;
+                case 1:
+                    return Intensity;
+                case 2:
+                    return LightAdapt;
+                case 3:
+                    return ColorAdapt;
+            }
+
+            return 0.0f;
         }
 
         public void SetParameter(int index, float value)
         {
-            Debug.Assert(index == 0, "Reinahrd has only one parameter");
-            White = value;
+            switch (index)
+            {
+                case 0:
+                    Gamma = value;
+                    break;
+                case 1:
+                    Intensity = value;
+                    break;
+                case 2:
+                    LightAdapt = value;
+                    break;
+                case 3:
+                    ColorAdapt = value;
+                    break;
+            }
         }
 
         public Mat GetLDR(HDRImage hdrImage)
         {
-            var r = TonemapReinhard.Create(White);
+            var r = TonemapReinhard.Create(Gamma, Intensity, LightAdapt, ColorAdapt);
             r.Process(hdrImage.Data, _reinhardMat);
             return _reinhardMat;
         }
@@ -39,8 +66,10 @@ namespace GeneticToneMapping
         {
             return new Reinhard
             {
-                Weight = Weight,
-                White = White
+                Gamma      = Gamma,
+                Intensity  = Intensity,
+                LightAdapt = LightAdapt,
+                ColorAdapt = ColorAdapt
             };
         }
     }
