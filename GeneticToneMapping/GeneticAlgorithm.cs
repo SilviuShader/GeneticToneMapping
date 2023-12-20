@@ -164,6 +164,15 @@ namespace GeneticToneMapping
                 {
                     var otherGene = individual2Genes[gene.InnovationNumber];
                     w += MathF.Abs( gene.ToneMap.Weight - otherGene.ToneMap.Weight);
+                    for (var parameterIndex = 0; parameterIndex < gene.ToneMap.ParametersCount; parameterIndex++)
+                    {
+                        var parameter1 = gene.ToneMap.GetParameter(parameterIndex);
+                        var parameter2 = otherGene.ToneMap.GetParameter(parameterIndex);
+                        gene.ToneMap.GetParameterRange(parameterIndex, out var minVal, out var maxVal);
+                        parameter1 = (parameter1 - minVal) / (maxVal - minVal);
+                        parameter2 = (parameter2 - minVal) / (maxVal - minVal);
+                        w += MathF.Abs(parameter2 - parameter1);
+                    }
                 }
             }
 
@@ -269,7 +278,7 @@ namespace GeneticToneMapping
                 }
 
                 gene.ToneMap.Weight += (_random.NextSingle() * 2.0f - 1.0f) * _weightMutation;
-                gene.ToneMap.Weight = Math.Clamp(gene.ToneMap.Weight, _weightMutation, 1.0f);
+                gene.ToneMap.Weight = Math.Clamp(gene.ToneMap.Weight, 0.0f, 1.0f);
 
                 individual.Genes[geneIndex] = gene;
             }
@@ -334,7 +343,7 @@ namespace GeneticToneMapping
             var ldrImage = ToneMapper.ToneMap(referenceImage, toneMaps);
 
             // TODO: Calculate entropy here
-            var newFitness = ShannonEntropy(ldrImage) + CalculateColorfulness(ldrImage) * 0.001f;
+            var newFitness = ShannonEntropy(ldrImage) + CalculateColorfulness(ldrImage) * 0.1f;
 
             individual.Fitness = newFitness;
         }
