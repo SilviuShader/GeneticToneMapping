@@ -1,78 +1,82 @@
-﻿//using System;
-//using Microsoft.Xna.Framework;
+﻿using System;
+using Microsoft.Xna.Framework;
+using OpenCvSharp;
 
-//namespace GeneticToneMapping
-//{
-//    internal struct Uncharted2 : IToneMap
-//    {
-//        public  int      ParametersCount      => 7;
-//        public  float    Weight { get; set; } = 1.0f;
-                         
-//        private float[]  _parameters;
+namespace GeneticToneMapping
+{
+    internal struct Uncharted2 : IToneMap
+    {
+        public int      ParametersCount => 7;
+        public float    Weight { get; set; } = 1.0f;
 
-//        private HDRImage _workingImage;
+        private float[] _parameters;
 
-//        public Uncharted2()
-//        {
-//            _parameters   = new float[7];
-//            _workingImage = null;
-//        }
+        public Uncharted2()
+        {
+            _parameters = new float[7];
+        }
 
-//        public float GetParameter(int index)
-//        {
-//            return _parameters[index];
-//        }
+        public float GetParameter(int index)
+        {
+            return _parameters[index];
+        }
 
-//        public void SetParameter(int index, float value)
-//        {
-//            _parameters[index] = value;
-//        }
+        public void SetParameter(int index, float value)
+        {
+            _parameters[index] = value;
+        }
+        
+        public Mat GetLDR(HDRImage hdrImage)
+        {
+            var exposureBias = 2.0f;
+            var input = (exposureBias * Uncharted2Tonemap(hdrImage.Data)).ToMat();
+            var mask = new Mat();
+            var output = new Mat();
 
-//        public void SetImage(HDRImage hdrImage)
-//        {
-//            _workingImage = hdrImage;
-//        }
-
-//        public Vector3 GetLDR(int x, int y)
-//        {
-//            var col = _workingImage.GetPixel(x, y);
-
-//            var exposureBias = 2.0f;
-//            var curr = exposureBias * Uncharted2Tonemap(col);
-
-//            var w = _parameters[6];
-
-//            var whiteScale = Vector3.One / Uncharted2Tonemap(new Vector3(w, w, w));
-
-//            var cout = curr * whiteScale;
-
-//            return cout;
-//        }
-
-//        private Vector3 Uncharted2Tonemap(Vector3 x)
-//        {
-//            var a = _parameters[0];
-//            var b = _parameters[1];
-//            var c = _parameters[2];
-//            var d = _parameters[3];
-//            var e = _parameters[4];
-//            var f = _parameters[5];
-
-//            return ((x * (a * x + Vector3.One * c * b) + Vector3.One * d * e) / (x * (a * x + Vector3.One * b) + Vector3.One * d * f)) - Vector3.One * e / f;
-//        }
-
-//        public object Clone()
-//        {
-//            var result = new Uncharted2
-//            {
-//                _parameters = new float[_parameters.Length],
-//                _workingImage = null,
-//                Weight = Weight
-//            };
+            var w = _parameters[6];
+            var whiteScale = 1.0f / Uncharted2Tonemap(w);
+            input *= whiteScale;
             
-//            Array.Copy(_parameters, result._parameters, _parameters.Length);
+            Cv2.InRange(input, new Scalar(0.0f), new Scalar(1.0f), mask);
+            input.CopyTo(output, mask);
+            return output;
+        }
 
-//            return result;
-//        }
-//    }
-//}
+        private float Uncharted2Tonemap(float x)
+        {
+            var a = _parameters[0];
+            var b = _parameters[1];
+            var c = _parameters[2];
+            var d = _parameters[3];
+            var e = _parameters[4];
+            var f = _parameters[5];
+
+            return ((x * (a * x * c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
+        }
+
+        private Mat Uncharted2Tonemap(Mat m)
+        {
+            var a = _parameters[0];
+            var b = _parameters[1];
+            var c = _parameters[2];
+            var d = _parameters[3];
+            var e = _parameters[4];
+            var f = _parameters[5];
+
+            return ((m.Mul((a * m + c * b))+  d * e) / (m.Mul(a * m + b) + d * f)) - e / f;
+        }
+
+        public object Clone()
+        {
+            var result = new Uncharted2
+            {
+                _parameters = new float[_parameters.Length],
+                Weight = Weight
+            };
+
+            Array.Copy(_parameters, result._parameters, _parameters.Length);
+
+            return result;
+        }
+    }
+}
