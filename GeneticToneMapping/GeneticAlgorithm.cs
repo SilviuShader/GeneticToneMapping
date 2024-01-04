@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
@@ -9,6 +10,7 @@ namespace GeneticToneMapping
 {
     internal class GeneticAlgorithm
     {
+        [Serializable]
         public struct SpecieParameters
         {
             public float C1;
@@ -16,6 +18,13 @@ namespace GeneticToneMapping
             public float C3;
             public float N;
             public float Threshold;
+        }
+
+        [Serializable]
+        public struct GenericAlgorithmParameters
+        {
+            public string TrainingImagesPath;
+            public string TestImagesPath;
         }
         
         class Specie
@@ -31,31 +40,41 @@ namespace GeneticToneMapping
             }
         }
 
-        public  Chromosome       PreviousBest => _previousBest;
+        public  Chromosome                 PreviousBest => _previousBest;
+        public  HDRImage[]                 TestImages { get; private set; }
+                                           
+        private List<Specie>               _population;
 
-        private List<Specie>     _population;
-        private int              _populationSize;
-        private Random           _random;
+        private GenericAlgorithmParameters _parameters;
+        private HDRImage[]                 _trainingImages;
 
-        private float            _crossoverRate;
-        private float            _addGeneChance;
-        private float            _removeGeneChance;
-        private float            _weightMutation;
-
-        private SpecieParameters _specieParameters;
-
-        private int              _innovationNumber;
-
-        private Chromosome       _previousBest;
+        private int                        _populationSize;
+        private Random                     _random;
+                                           
+        private float                      _crossoverRate;
+        private float                      _addGeneChance;
+        private float                      _removeGeneChance;
+        private float                      _weightMutation;
+                                           
+        private SpecieParameters           _specieParameters;
+                                           
+        private int                        _innovationNumber;
+                                           
+        private Chromosome                 _previousBest;
 
         public GeneticAlgorithm(
-            int              populationSize, 
-            float            crossoverRate, 
-            float            addGeneChance, 
-            float            removeGeneChance, 
-            float            weightMutation,
-            SpecieParameters specieParameters)
+            GenericAlgorithmParameters gaParams,
+            int                        populationSize, 
+            float                      crossoverRate, 
+            float                      addGeneChance, 
+            float                      removeGeneChance, 
+            float                      weightMutation,
+            SpecieParameters           specieParameters)
         {
+            _parameters = gaParams;
+
+            LoadImages();
+
             _populationSize = populationSize;
             _population = new List<Specie>();
 
@@ -74,13 +93,16 @@ namespace GeneticToneMapping
             _specieParameters = specieParameters;
         }
 
-        public void Epoch(HDRImage referenceImage)
+        public void Epoch()
         {
             foreach (var specie in _population)
             {
                 foreach (var individual in specie.Inidividuals)
                 {
-                    SetFitness(individual, referenceImage);
+                    individual.Fitness = 0.0f;
+                    foreach (var referenceImage in _trainingImages)
+                        SetFitness(individual, referenceImage);
+
                     individual.InitialFitness = individual.Fitness;
                     individual.Fitness /= specie.Inidividuals.Count;
                 }
@@ -111,6 +133,23 @@ namespace GeneticToneMapping
             }
 
             _population = newPopulation;
+        }
+
+        private void LoadImages()
+        {
+            var trainingFiles = Directory.GetFiles(_parameters.TrainingImagesPath, "*.exr", SearchOption.AllDirectories);
+            var testFiles = Directory.GetFiles(_parameters.TestImagesPath, "*.exr", SearchOption.AllDirectories);
+
+            _trainingImages = new HDRImage[trainingFiles.Length];
+            TestImages = new HDRImage[testFiles.Length];
+
+            var index = 0;
+            foreach (var file in trainingFiles)
+                _trainingImages[index++] = new HDRImage(file);
+
+            index = 0;
+            foreach (var file in testFiles)
+                TestImages[index++] = new HDRImage(file);
         }
 
         private float CompatibilityDistance(Chromosome individual1, Chromosome individual2)
@@ -327,13 +366,13 @@ namespace GeneticToneMapping
         private IToneMap RandomToneMap()
         {
             
-            var rnd = _random.Next(5);
+            var rnd = _random.Next(4);
             return rnd switch
             {
                 0 => new Reinhard(),
                 1 => new TumblinRushmeier(),
-                2 => new Uncharted2(),
-                3 => new Drago(),
+                //2 => new Uncharted2(),
+                2 => new Drago(),
                 _ => new Mantiuk()
             };
         }
@@ -350,7 +389,7 @@ namespace GeneticToneMapping
                 CalcSaturation(ldrImage) * 10.0f +
                 (1.0f / CalcBlurriness(ldrImage)) * 0.000001f;
                 
-            individual.Fitness = newFitness;
+            individual.Fitness += newFitness;
         }
 
         private static float ShannonEntropy(LDRImage ldr)

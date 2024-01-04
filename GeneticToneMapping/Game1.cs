@@ -15,9 +15,6 @@ namespace GeneticToneMapping
         private GraphicsDeviceManager _graphics;
         private SpriteBatch           _spriteBatch;
 
-        private HDRImage              _trainingImage;
-        private HDRImage              _displayImage;
-
         private GeneticAlgorithm      _algorithm;
 
         private Mutex                 _textureMutex;
@@ -48,10 +45,8 @@ namespace GeneticToneMapping
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            _trainingImage = new HDRImage("Images/Sample1.exr");
+            
             //_trainingImage.Slice(128, 128);
-            _displayImage = new HDRImage("Images/Sample1.exr");
             GeneticAlgorithm.SpecieParameters sp = new GeneticAlgorithm.SpecieParameters();
 
             sp.C1        = 1.0f;
@@ -60,8 +55,13 @@ namespace GeneticToneMapping
             sp.N         = 1.0f;
             sp.Threshold = 3.0f;
 
-            _algorithm = new GeneticAlgorithm(150, 0.5f, 0.01f, 0.1f, 0.1f, sp);
-            _ldrTexture = new Texture2D(GraphicsDevice, _displayImage.Width, _displayImage.Height, false, SurfaceFormat.Color);
+            var gaParams = new GeneticAlgorithm.GenericAlgorithmParameters
+            {
+                TrainingImagesPath = "Images/Uncompressed/MiniTraining",
+                TestImagesPath     = "Images/Uncompressed/MiniTest"
+            };
+
+            _algorithm = new GeneticAlgorithm(gaParams, 150, 0.5f, 0.01f, 0.1f, 0.1f, sp);
 
             _font = Content.Load<SpriteFont>("AppFont");
 
@@ -85,13 +85,15 @@ namespace GeneticToneMapping
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.Black);
-            
 
             _spriteBatch.Begin();
+            
             _textureMutex.WaitOne();
-            _spriteBatch.Draw(_ldrTexture, Vector2.Zero, Color.White);
+            if (_ldrTexture != null)
+                _spriteBatch.Draw(_ldrTexture, Vector2.Zero, Color.White);
             _spriteBatch.DrawString(_font, _bestFitness.ToString(), new Vector2(10.0f, 10.0f), Color.White);
             _textureMutex.ReleaseMutex();
+            
             _spriteBatch.End();
 
 
@@ -100,15 +102,19 @@ namespace GeneticToneMapping
 
         private unsafe void RunGeneticAlgorithm()
         {
-            Vec3f[] data = new Vec3f[_trainingImage.Width * _trainingImage.Height];
-            var colorData = new Color[data.Length];
-
-            int gen = 0;
+            var gen = 0;
 
             while (_appRunning)
             {
-                _algorithm.Epoch(_trainingImage);
-                var ldrImage = ToneMapper.ToneMap(_displayImage, _algorithm.PreviousBest.Genes.Select(x => x.ToneMap));
+                _algorithm.Epoch();
+
+                var testImageIndex = gen % _algorithm.TestImages.Length;
+                var testingImage = _algorithm.TestImages[testImageIndex];
+
+                var data = new Vec3f[testingImage.Width * testingImage.Height];
+                var colorData = new Color[data.Length];
+
+                var ldrImage = ToneMapper.ToneMap(testingImage, _algorithm.PreviousBest.Genes.Select(x => x.ToneMap));
                 _textureMutex.WaitOne();
                 _bestFitness = _algorithm.PreviousBest.InitialFitness;
 
@@ -118,6 +124,7 @@ namespace GeneticToneMapping
                 for (var i = 0; i < data.Length; i++)
                     colorData[i] = new Color(data[i].Item0, data[i].Item1, data[i].Item2, 1.0f);
 
+                _ldrTexture = new Texture2D(GraphicsDevice, testingImage.Width, testingImage.Height, false, SurfaceFormat.Color);
                 _ldrTexture.SetData(colorData, 0, colorData.Length);
                 _textureMutex.ReleaseMutex();
 
