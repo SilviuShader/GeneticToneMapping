@@ -1,10 +1,12 @@
 ﻿using System.Configuration;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Newtonsoft.Json;
 using OpenCvSharp;
 using SharpEXR;
 
@@ -45,23 +47,32 @@ namespace GeneticToneMapping
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-            
-            //_trainingImage.Slice(128, 128);
-            GeneticAlgorithm.SpecieParameters sp = new GeneticAlgorithm.SpecieParameters();
 
-            sp.C1        = 1.0f;
-            sp.C2        = 1.0f;
-            sp.C3        = 4.0f;
-            sp.N         = 1.0f;
-            sp.Threshold = 3.0f;
+            var gaParams = GeneticAlgorithm.GenericAlgorithmParameters.Default;
+            var paramsFile = "config.json";
 
-            var gaParams = new GeneticAlgorithm.GenericAlgorithmParameters
+            bool loadedFile = false;
+
+            if (File.Exists(paramsFile))
             {
-                TrainingImagesPath = "Images/Uncompressed/MiniTraining",
-                TestImagesPath     = "Images/Uncompressed/MiniTest"
-            };
+                try
+                {
+                    gaParams = JsonConvert.DeserializeObject<GeneticAlgorithm.GenericAlgorithmParameters>(File.ReadAllText(paramsFile));
+                    loadedFile = true;
+                }
+                catch
+                {
+                    loadedFile = false;
+                }
+            }
 
-            _algorithm = new GeneticAlgorithm(gaParams, 150, 0.5f, 0.01f, 0.1f, 0.1f, sp);
+            if (!loadedFile)
+            {
+                gaParams = GeneticAlgorithm.GenericAlgorithmParameters.Default;
+                File.WriteAllText(paramsFile, JsonConvert.SerializeObject(gaParams, Formatting.Indented));
+            }
+
+            _algorithm = new GeneticAlgorithm(gaParams);
 
             _font = Content.Load<SpriteFont>("AppFont");
 

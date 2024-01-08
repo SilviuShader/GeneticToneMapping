@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
 using OpenCvSharp;
 
@@ -13,18 +12,64 @@ namespace GeneticToneMapping
         [Serializable]
         public struct SpecieParameters
         {
-            public float C1;
-            public float C2;
-            public float C3;
-            public float N;
-            public float Threshold;
+            public        float            C1;
+            public        float            C2;
+            public        float            C3;
+            public        float            N;
+            public        float            Threshold;
+
+            public static SpecieParameters Default => new()
+            {
+                C1        = 1.0f,
+                C2        = 1.0f,
+                C3        = 4.0f,
+                N         = 1.0f,
+                Threshold = 3.0f
+            };
+        }
+
+        [Serializable]
+        public struct FitnessParameters
+        {
+            public        float             Entropy;
+            public        float             Contrast;
+            public        float             Saturation;
+            public        float             Sharpness;
+
+            public static FitnessParameters Default => new()
+            {
+                Entropy    = 1.0f,
+                Contrast   = 1.0f,
+                Saturation = 1.0f,
+                Sharpness  = 1.0f
+            };
         }
 
         [Serializable]
         public struct GenericAlgorithmParameters
         {
-            public string TrainingImagesPath;
-            public string TestImagesPath;
+            public        string                     TrainingImagesPath;
+            public        string                     TestImagesPath;
+            public        int                        PopulationSize;
+            public        float                      CrossoverRate;
+            public        float                      AddGeneChance;
+            public        float                      RemoveGeneChance;
+            public        float                      WeightMutation;
+            public        SpecieParameters           SpecieParameters;
+            public        FitnessParameters          FitnessParameters;
+
+            public static GenericAlgorithmParameters Default => new()
+            {
+                TrainingImagesPath = "Images/Uncompressed/MiniTraining",
+                TestImagesPath     = "Images/Uncompressed/MiniTest",
+                PopulationSize     = 150,
+                CrossoverRate      = 0.5f,
+                AddGeneChance      = 0.01f,
+                RemoveGeneChance   = 0.1f,
+                WeightMutation     = 0.1f,
+                SpecieParameters   = SpecieParameters.Default,
+                FitnessParameters  = FitnessParameters.Default,
+            };
         }
         
         class Specie
@@ -47,50 +92,30 @@ namespace GeneticToneMapping
 
         private GenericAlgorithmParameters _parameters;
         private HDRImage[]                 _trainingImages;
-
-        private int                        _populationSize;
+        
         private Random                     _random;
-                                           
-        private float                      _crossoverRate;
-        private float                      _addGeneChance;
-        private float                      _removeGeneChance;
-        private float                      _weightMutation;
-                                           
-        private SpecieParameters           _specieParameters;
-                                           
+
         private int                        _innovationNumber;
                                            
         private Chromosome                 _previousBest;
 
         public GeneticAlgorithm(
-            GenericAlgorithmParameters gaParams,
-            int                        populationSize, 
-            float                      crossoverRate, 
-            float                      addGeneChance, 
-            float                      removeGeneChance, 
-            float                      weightMutation,
-            SpecieParameters           specieParameters)
+            GenericAlgorithmParameters gaParams)
         {
             _parameters = gaParams;
 
             LoadImages();
-
-            _populationSize = populationSize;
+            
             _population = new List<Specie>();
 
             var firstSpecie = new Specie(new Chromosome());
-            while (firstSpecie.Inidividuals.Count < populationSize)
+            while (firstSpecie.Inidividuals.Count < _parameters.PopulationSize)
                 firstSpecie.Inidividuals.Add(new Chromosome());
             _population.Add(firstSpecie);
             
             _random           = new Random(0);
-            _crossoverRate    = crossoverRate;
-            _addGeneChance    = addGeneChance;
-            _removeGeneChance = removeGeneChance;
-            _weightMutation   = weightMutation;
             _innovationNumber = 0;
             _previousBest     = firstSpecie.Representative;
-            _specieParameters = specieParameters;
         }
 
         public void Epoch()
@@ -101,7 +126,7 @@ namespace GeneticToneMapping
                 {
                     individual.Fitness = 0.0f;
                     foreach (var referenceImage in _trainingImages)
-                        SetFitness(individual, referenceImage);
+                        SetFitness(_parameters.FitnessParameters, individual, referenceImage);
 
                     individual.InitialFitness = individual.Fitness;
                     individual.Fitness /= specie.Inidividuals.Count;
@@ -120,7 +145,7 @@ namespace GeneticToneMapping
             AddNBest(newPopulation, 2, 3);
 
             var populationSize = newPopulation.Select(x=>x.Inidividuals.Count).Sum();
-            while (populationSize < _populationSize)
+            while (populationSize < _parameters.PopulationSize)
             {
                 var parent1 = RouletteWheelSelection();
                 var parent2 = RouletteWheelSelection();
@@ -216,17 +241,21 @@ namespace GeneticToneMapping
                 }
             }
 
-            return excess   * (_specieParameters.C1 / _specieParameters.N) +
-                   disjoint * (_specieParameters.C2 / _specieParameters.N) +
-                   _specieParameters.C3 * w;
+            ref var specieParameters = ref _parameters.SpecieParameters;
+
+            return excess   * (specieParameters.C1 / specieParameters.N) +
+                   disjoint * (specieParameters.C2 / specieParameters.N) +
+                   specieParameters.C3 * w;
         }
 
         private void InsertToPopulation(List<Specie> newPopulation, Chromosome individual)
         {
+            ref var specieParameters = ref _parameters.SpecieParameters;
+
             Specie targetSpecie = null;
             foreach (var specie in newPopulation)
             {
-                if (CompatibilityDistance(specie.Representative, individual) <= _specieParameters.Threshold)
+                if (CompatibilityDistance(specie.Representative, individual) <= specieParameters.Threshold)
                 {
                     targetSpecie = specie;
                     break;
@@ -287,7 +316,7 @@ namespace GeneticToneMapping
                 };
 
                 if (worstParentGenes.ContainsKey(gene.InnovationNumber))
-                    if (_random.NextSingle() < _crossoverRate)
+                    if (_random.NextSingle() < _parameters.CrossoverRate)
                         newGene.ToneMap = (IToneMap)worstParentGenes[gene.InnovationNumber].ToneMap.Clone();
 
                 child.Genes.Add(newGene);
@@ -298,10 +327,10 @@ namespace GeneticToneMapping
 
         private void Mutate(IDictionary<Type, int> currentInnovations, Chromosome individual)
         {
-            if (_random.NextSingle() < _addGeneChance)
+            if (_random.NextSingle() < _parameters.AddGeneChance)
                 AddGene(currentInnovations, individual);
 
-            if (_random.NextSingle() < _removeGeneChance)
+            if (_random.NextSingle() < _parameters.RemoveGeneChance)
                 RemoveGene(individual);
 
             for (var geneIndex = 0; geneIndex < individual.Genes.Count; geneIndex++)
@@ -312,12 +341,12 @@ namespace GeneticToneMapping
                 {
                     var val = gene.ToneMap.GetParameter(p);
                     gene.ToneMap.GetParameterRange(p, out var minVal, out var maxVal);
-                    val += (_random.NextSingle() * 2.0f - 1.0f) * _weightMutation * (maxVal - minVal);
+                    val += (_random.NextSingle() * 2.0f - 1.0f) * _parameters.WeightMutation * (maxVal - minVal);
                     val = Math.Clamp(val, minVal, maxVal);
                     gene.ToneMap.SetParameter(p, val);
                 }
 
-                gene.ToneMap.Weight += (_random.NextSingle() * 2.0f - 1.0f) * _weightMutation;
+                gene.ToneMap.Weight += (_random.NextSingle() * 2.0f - 1.0f) * _parameters.WeightMutation;
                 gene.ToneMap.Weight = Math.Clamp(gene.ToneMap.Weight, 0.0f, 1.0f);
 
                 individual.Genes[geneIndex] = gene;
@@ -349,7 +378,7 @@ namespace GeneticToneMapping
                 gene.ToneMap.SetParameter(i, MathHelper.Lerp(minVal, maxVal, _random.NextSingle()));
             }
 
-            gene.ToneMap.Weight = _weightMutation;
+            gene.ToneMap.Weight = _parameters.WeightMutation;
 
             individual.Genes.Add(gene);
         }
@@ -377,17 +406,16 @@ namespace GeneticToneMapping
             };
         }
 
-        private static void SetFitness(Chromosome individual, HDRImage referenceImage)
+        private static void SetFitness(FitnessParameters fitnessParameters, Chromosome individual, HDRImage referenceImage)
         {
             var toneMaps = individual.Genes.Select(x => x.ToneMap);
             var ldrImage = ToneMapper.ToneMap(referenceImage, toneMaps);
 
-            // TODO: Calculate entropy here
             var newFitness =
-                ShannonEntropy(ldrImage) * 10.0f +
-                CalcContrast(ldrImage) * 0.01f+
-                CalcSaturation(ldrImage) * 10.0f +
-                (1.0f / CalcBlurriness(ldrImage)) * 0.000001f;
+                ShannonEntropy(ldrImage)          * 10.0f   * fitnessParameters.Entropy   +
+                CalcContrast(ldrImage)            * 100.0f  * fitnessParameters.Contrast  +
+                CalcSaturation(ldrImage)          * 10.0f   * fitnessParameters.Saturation+
+                (1.0f / CalcBlurriness(ldrImage)) * 0.0001f * fitnessParameters.Sharpness;
                 
             individual.Fitness += newFitness;
         }
