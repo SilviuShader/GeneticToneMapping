@@ -1,4 +1,6 @@
-﻿using System.Configuration;
+﻿using System;
+using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -14,6 +16,14 @@ namespace GeneticToneMapping
 {
     public class Game1 : Game
     {
+        [Serializable]
+        private struct ToneMapSerialized
+        {
+            public string  Type;
+            public float   Weight;
+            public float[] Parameters;
+        }
+
         private GraphicsDeviceManager                       _graphics;
         private SpriteBatch                                 _spriteBatch;
 
@@ -170,6 +180,22 @@ namespace GeneticToneMapping
                 texture.SaveAsPng(stream, texture.Width, texture.Height);
                 index++;
             }
+
+            var modelOutput = new List<ToneMapSerialized>();
+            var toneMaps = _algorithm.PreviousBest.Genes.Select(x => x.ToneMap);
+            foreach (var toneMap in toneMaps)
+            {
+                var element = new ToneMapSerialized();
+                element.Type = toneMap.GetType().ToString();
+                element.Weight = toneMap.Weight;
+                element.Parameters = new float[toneMap.ParametersCount];
+                for (var paramIndex = 0; paramIndex < element.Parameters.Length; paramIndex++)
+                    element.Parameters[paramIndex] = toneMap.GetParameter(paramIndex);
+                modelOutput.Add(element);
+            }
+
+            File.WriteAllText(Path.Combine(_algorithmParameters.OutputPath, "model.json"), JsonConvert.SerializeObject(modelOutput));
+
             _textureMutex.ReleaseMutex();
             _appRunning = false;
         }
