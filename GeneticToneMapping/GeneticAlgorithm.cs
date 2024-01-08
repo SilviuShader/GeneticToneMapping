@@ -50,6 +50,8 @@ namespace GeneticToneMapping
         {
             public        string                     TrainingImagesPath;
             public        string                     TestImagesPath;
+            public        string                     OutputPath;
+            public        int                        MaxEpochs;
             public        int                        PopulationSize;
             public        float                      CrossoverRate;
             public        float                      AddGeneChance;
@@ -62,6 +64,8 @@ namespace GeneticToneMapping
             {
                 TrainingImagesPath = "Images/Uncompressed/MiniTraining",
                 TestImagesPath     = "Images/Uncompressed/MiniTest",
+                OutputPath         = "Images/Uncompressed/Output",
+                MaxEpochs          = 5,
                 PopulationSize     = 150,
                 CrossoverRate      = 0.5f,
                 AddGeneChance      = 0.01f,

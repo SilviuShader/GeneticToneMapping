@@ -14,19 +14,20 @@ namespace GeneticToneMapping
 {
     public class Game1 : Game
     {
-        private GraphicsDeviceManager _graphics;
-        private SpriteBatch           _spriteBatch;
+        private GraphicsDeviceManager                       _graphics;
+        private SpriteBatch                                 _spriteBatch;
 
-        private GeneticAlgorithm      _algorithm;
-
-        private Mutex                 _textureMutex;
-        private Texture2D             _ldrTexture;
-
-        private bool                  _appRunning;
-        private Thread                _geneticThread;
-        private float                 _bestFitness;
-
-        private SpriteFont            _font;
+        private GeneticAlgorithm.GenericAlgorithmParameters _algorithmParameters;
+        private GeneticAlgorithm                            _algorithm;
+                                                            
+        private Mutex                                       _textureMutex;
+        private Texture2D                                   _ldrTexture;
+                                                            
+        private bool                                        _appRunning;
+        private Thread                                      _geneticThread;
+        private float                                       _bestFitness;
+                                                            
+        private SpriteFont                                  _font;
 
         public Game1()
         {
@@ -48,7 +49,7 @@ namespace GeneticToneMapping
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            var gaParams = GeneticAlgorithm.GenericAlgorithmParameters.Default;
+            _algorithmParameters = GeneticAlgorithm.GenericAlgorithmParameters.Default;
             var paramsFile = "config.json";
 
             bool loadedFile = false;
@@ -57,7 +58,7 @@ namespace GeneticToneMapping
             {
                 try
                 {
-                    gaParams = JsonConvert.DeserializeObject<GeneticAlgorithm.GenericAlgorithmParameters>(File.ReadAllText(paramsFile));
+                    _algorithmParameters = JsonConvert.DeserializeObject<GeneticAlgorithm.GenericAlgorithmParameters>(File.ReadAllText(paramsFile));
                     loadedFile = true;
                 }
                 catch
@@ -68,11 +69,11 @@ namespace GeneticToneMapping
 
             if (!loadedFile)
             {
-                gaParams = GeneticAlgorithm.GenericAlgorithmParameters.Default;
-                File.WriteAllText(paramsFile, JsonConvert.SerializeObject(gaParams, Formatting.Indented));
+                _algorithmParameters = GeneticAlgorithm.GenericAlgorithmParameters.Default;
+                File.WriteAllText(paramsFile, JsonConvert.SerializeObject(_algorithmParameters, Formatting.Indented));
             }
 
-            _algorithm = new GeneticAlgorithm(gaParams);
+            _algorithm = new GeneticAlgorithm(_algorithmParameters);
 
             _font = Content.Load<SpriteFont>("AppFont");
 
@@ -115,7 +116,7 @@ namespace GeneticToneMapping
         {
             var gen = 0;
 
-            while (_appRunning)
+            while (_appRunning && gen < _algorithmParameters.MaxEpochs)
             {
                 _algorithm.Epoch();
 
@@ -141,6 +142,36 @@ namespace GeneticToneMapping
 
                 gen++;
             }
+
+            _textureMutex.WaitOne();
+            if (!Directory.Exists(_algorithmParameters.OutputPath))
+                Directory.CreateDirectory(_algorithmParameters.OutputPath);
+
+            var outputDir = new DirectoryInfo(_algorithmParameters.OutputPath);
+            outputDir.Empty();
+
+            var index = 0;
+            foreach (var testImage in _algorithm.TestImages)
+            {
+                var data = new Vec3f[testImage.Width * testImage.Height];
+                var colorData = new Color[data.Length];
+
+                var ldrImage = ToneMapper.ToneMap(testImage, _algorithm.PreviousBest.Genes.Select(x => x.ToneMap));
+
+                fixed (void* ptr = data)
+                    Unsafe.CopyBlock(ptr, ldrImage.Data.DataPointer, (uint)ldrImage.Width * (uint)ldrImage.Height * 3 * sizeof(float));
+
+                for (var i = 0; i < data.Length; i++)
+                    colorData[i] = new Color(data[i].Item0, data[i].Item1, data[i].Item2, 1.0f);
+
+                var texture = new Texture2D(GraphicsDevice, testImage.Width, testImage.Height, false, SurfaceFormat.Color);
+                texture.SetData(colorData, 0, colorData.Length);
+                Stream stream = File.Create(Path.Combine(_algorithmParameters.OutputPath, "test" + index + ".png"));
+                texture.SaveAsPng(stream, texture.Width, texture.Height);
+                index++;
+            }
+            _textureMutex.ReleaseMutex();
+            _appRunning = false;
         }
     }
 }
