@@ -39,6 +39,8 @@ namespace GeneticToneMapping
                                                             
         private SpriteFont                                  _font;
 
+        private List<float>                                 _fitnessScores = new();
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -140,6 +142,8 @@ namespace GeneticToneMapping
                 _textureMutex.WaitOne();
                 _bestFitness = _algorithm.PreviousBest.InitialFitness;
 
+                _fitnessScores.Add(_bestFitness);
+
                 fixed (void* ptr = data)
                     Unsafe.CopyBlock(ptr, ldrImage.Data.DataPointer, (uint)ldrImage.Width * (uint)ldrImage.Height * 3 * sizeof(float));
 
@@ -195,6 +199,7 @@ namespace GeneticToneMapping
             }
 
             File.WriteAllText(Path.Combine(_algorithmParameters.OutputPath, "model.json"), JsonConvert.SerializeObject(modelOutput));
+            File.WriteAllText(Path.Combine(_algorithmParameters.OutputPath, "fitness.json"), JsonConvert.SerializeObject(_fitnessScores));
 
             _textureMutex.ReleaseMutex();
             _appRunning = false;
