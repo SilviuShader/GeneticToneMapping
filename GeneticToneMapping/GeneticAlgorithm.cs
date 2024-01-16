@@ -398,14 +398,14 @@ namespace GeneticToneMapping
 
         private IToneMap RandomToneMap()
         {
-            
-            var rnd = _random.Next(4);
+            var rnd = _random.Next(5);
             return rnd switch
             {
                 0 => new Reinhard(),
                 1 => new TumblinRushmeier(),
                 //2 => new Uncharted2(),
                 2 => new Drago(),
+                3 => new Uchimura(),
                 _ => new Mantiuk()
             };
         }

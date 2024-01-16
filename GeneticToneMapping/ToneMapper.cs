@@ -20,9 +20,9 @@ namespace GeneticToneMapping
             {
                 var adjustedWeight = toneMap.Weight / totalWeights;
                 var ldr = toneMap.GetLDR(image);
+                ldr.PatchNaNs(1.0f);
                 result.AddData(ldr, adjustedWeight);
             }
-            result.Data.PatchNaNs();
             result.Clamp01();
 
             return result;
