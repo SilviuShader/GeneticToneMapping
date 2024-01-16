@@ -52,11 +52,11 @@ namespace GeneticToneMapping
             {
                 case 0:
                     minVal = 1.0f;
-                    maxVal = 5.0f;
+                    maxVal = 1.0f;
                     break;
                 case 1:
                     minVal = 0.01f;
-                    maxVal = 0.5f;
+                    maxVal = 1.0f;
                     break;
                 case 2:
                     minVal = 0.01f;
